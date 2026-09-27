@@ -22,7 +22,7 @@ export default function Sidebar({ onNewNote, activeSection, onSectionChange, onC
         <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
           <Circle className="w-5 h-5 text-white fill-white" />
         </div>
-        <span className="text-xl font-semibold text-gray-900">MINO</span>
+        <span className="text-xl font-semibold text-gray-900">NotepadX</span>
       </div>
 
       {/* Add New Button */}

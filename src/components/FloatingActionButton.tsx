@@ -8,7 +8,7 @@ export default function FloatingActionButton({ onClick }: FloatingActionButtonPr
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-8 right-8 w-16 h-16 bg-indigo-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center group"
+      className="fixed bottom-20 right-6 sm:bottom-8 sm:right-8 w-14 h-14 bg-indigo-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center group"
       style={{ animation: 'bounce-in 0.5s ease-out' }}
     >
       <Plus className="w-8 h-8 text-white" />

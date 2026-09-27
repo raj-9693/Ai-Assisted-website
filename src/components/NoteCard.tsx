@@ -59,7 +59,7 @@ export default function NoteCard({ note, onClick, onMenuClick, viewMode }: NoteC
         </div>
         <button
           onClick={onMenuClick}
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors opacity-0 group-hover:opacity-100"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
         >
           <MoreVertical className="w-5 h-5 text-gray-700" />
         </button>
@@ -81,7 +81,7 @@ export default function NoteCard({ note, onClick, onMenuClick, viewMode }: NoteC
           {isDrawing && <Edit className="w-4 h-4 text-gray-600" />}
           <button
             onClick={onMenuClick}
-            className="p-1 rounded-lg hover:bg-black/5 transition-colors opacity-0 group-hover:opacity-100"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           >
             <MoreVertical className="w-5 h-5 text-gray-700" />
           </button>

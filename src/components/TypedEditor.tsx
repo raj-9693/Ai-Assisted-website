@@ -103,18 +103,18 @@ export default function TypedEditor({ note: initialNote, onSave, onClose }: Type
       </div>
 
       {/* Title */}
-      <div className="max-w-4xl mx-auto w-full px-8 pt-8">
+      <div className="max-w-4xl mx-auto w-full px-4 sm:px-8 pt-8">
         <input
           type="text"
           placeholder="Enter title"
           value={note.title}
           onChange={handleTitleChange}
-          className="w-full text-4xl font-semibold text-gray-900 placeholder-gray-300 border-none focus:outline-none mb-4"
+          className="w-full text-2xl sm:text-4xl font-semibold text-gray-900 placeholder-gray-300 border-none focus:outline-none mb-4"
         />
       </div>
 
       {/* Rich Text Editor */}
-      <div className="flex-1 overflow-hidden max-w-4xl mx-auto w-full">
+      <div className="flex-1 overflow-hidden min-h-[40dvh] max-w-4xl mx-auto w-full px-0 sm:px-0">
         <RichTextEditor
           key={note.id}
           content={note.content}

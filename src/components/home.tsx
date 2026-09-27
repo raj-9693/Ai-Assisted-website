@@ -15,6 +15,8 @@ import NoteOptionsSheet from "./NoteOptionsSheet";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import CalendarView from "./CalendarView";
 import DailyTaskDashboard from "./DailyTaskDashboard";
+import BottomNav from "./BottomNav";
+import MobileHeader from "./MobileHeader";
 import { Menu, User, X, Calendar, ArrowLeft } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 
@@ -182,18 +184,28 @@ function Home() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar
-        onNewNote={() => setShowModeSelector(true)}
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        onCalendarClick={() => setShowCalendar(true)}
-      />
+      {/* Sidebar — desktop only */}
+      <div className="hidden sm:flex flex-shrink-0">
+        <Sidebar
+          onNewNote={() => setShowModeSelector(true)}
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+          onCalendarClick={() => setShowCalendar(true)}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        {/* Mobile header — visible below sm breakpoint */}
+        <MobileHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Desktop search bar — hidden on mobile */}
+        <div className="hidden sm:block">
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        </div>
+
+        {/* Scrollable content — padded for MobileHeader top + BottomNav bottom */}
+        <div className="flex-1 overflow-y-auto pt-14 sm:pt-0 pb-16 sm:pb-0">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
@@ -325,7 +337,7 @@ function Home() {
                 <div
                   className={
                     viewMode === 'grid'
-                      ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+                      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
                       : 'space-y-3'
                   }
                 >
@@ -342,14 +354,16 @@ function Home() {
                     />
                   ))}
                   {viewMode === 'grid' && !selectedDate && activeSection === 'notes' && (
-                    <div 
-                      onClick={() => setShowModeSelector(true)}
-                      className="p-6 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all min-h-[200px]"
-                    >
-                      <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
-                        <Menu className="w-6 h-6 text-gray-400" />
+                    <div className="hidden sm:block">
+                      <div 
+                        onClick={() => setShowModeSelector(true)}
+                        className="p-6 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all min-h-[200px]"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
+                          <Menu className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-600">New Note</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-600">New Note</span>
                     </div>
                   )}
                 </div>
@@ -363,6 +377,12 @@ function Home() {
       {activeSection !== "tasks" && (
         <FloatingActionButton onClick={() => setShowModeSelector(true)} />
       )}
+      {/* Bottom Navigation — mobile only */}
+      <BottomNav
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        onCalendarClick={() => setShowCalendar(true)}
+      />
       <ModeSelector
         isOpen={showModeSelector}
         onClose={() => setShowModeSelector(false)}

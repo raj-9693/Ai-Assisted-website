@@ -79,14 +79,14 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
   const getDrawCtx = (): CanvasRenderingContext2D | null =>
     drawCanvasRef.current?.getContext('2d') ?? null;
 
-  const getCanvasPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const dc = drawCanvasRef.current;
     if (!dc) return { x: 0, y: 0 };
     const rect = dc.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const ctx = getDrawCtx();
     if (!ctx) return;
 
@@ -109,7 +109,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
     }
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasPos(e);
 
     if (currentMode === 'erase') {
@@ -196,7 +196,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
       {/* Header */}
-      <div className="bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4">
+      <div className="bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
             <button
@@ -207,8 +207,8 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
             </button>
           </div>
 
-          {/* Tools */}
-          <div className="flex items-center gap-6">
+          {/* Desktop Tools — hidden on mobile */}
+          <div className="hidden sm:flex items-center gap-6">
             {/* Pencil / Eraser */}
             <div className="flex gap-2">
               <button
@@ -295,7 +295,99 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
               </button>
             </div>
           </div>
+
+          {/* Mobile save button — always visible */}
+          <div className="flex sm:hidden items-center gap-2">
+            <button
+              onClick={handleSave}
+              className="min-w-[44px] min-h-[44px] px-4 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-1.5 text-sm font-medium"
+            >
+              <Save className="w-4 h-4" />
+              Save
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Mobile toolbar — compact scrollable strip (hidden on desktop) */}
+      <div className="flex sm:hidden items-center gap-2 px-3 py-2 bg-white border-b border-gray-100 overflow-x-auto">
+        {/* Draw / Erase toggle */}
+        <button
+          onClick={() => setCurrentMode('draw')}
+          title="Pencil"
+          className={`min-w-[44px] min-h-[44px] p-2.5 rounded-lg flex-shrink-0 transition-all ${
+            currentMode === 'draw'
+              ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-300'
+              : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          <Pencil className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setCurrentMode('erase')}
+          title="Eraser"
+          className={`min-w-[44px] min-h-[44px] p-2.5 rounded-lg flex-shrink-0 transition-all ${
+            currentMode === 'erase'
+              ? 'bg-red-100 text-red-600 ring-2 ring-red-300'
+              : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          <Eraser className="w-5 h-5" />
+        </button>
+
+        <div className="w-px h-6 bg-gray-200 mx-1 flex-shrink-0" />
+
+        {/* Color swatches */}
+        {colors.map((c) => (
+          <button
+            key={c}
+            onClick={() => { setColor(c); setCurrentMode('draw'); }}
+            className={`w-8 h-8 rounded-full border-2 flex-shrink-0 transition-all ${
+              color === c && currentMode === 'draw'
+                ? 'border-indigo-600 scale-110'
+                : 'border-gray-300'
+            }`}
+            style={{ backgroundColor: c, minWidth: 32, minHeight: 32 }}
+          />
+        ))}
+
+        <div className="w-px h-6 bg-gray-200 mx-1 flex-shrink-0" />
+
+        {/* Stroke sizes */}
+        {strokeSizes.map((size) => (
+          <button
+            key={size}
+            onClick={() => setStrokeSize(size)}
+            className={`min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+              strokeSize === size
+                ? currentMode === 'erase' ? 'bg-red-100' : 'bg-indigo-100'
+                : 'bg-gray-50'
+            }`}
+          >
+            <Circle
+              className={strokeSize === size && currentMode === 'erase' ? 'fill-red-500' : 'fill-gray-700'}
+              style={{ width: size * 2, height: size * 2 }}
+            />
+          </button>
+        ))}
+
+        <div className="w-px h-6 bg-gray-200 mx-1 flex-shrink-0" />
+
+        {/* Background + clear */}
+        <button
+          onClick={() => setShowBackgroundSheet(true)}
+          className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-gray-100 text-gray-600 flex-shrink-0"
+          title="Background"
+        >
+          <Palette className="w-5 h-5" />
+        </button>
+        <button
+          onClick={clearCanvas}
+          className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-gray-100 text-gray-600 flex-shrink-0"
+          title="Clear"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Title */}
@@ -321,12 +413,12 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
       >
         <canvas
           ref={drawCanvasRef}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={handleMouseLeaveCanvas}
+          onPointerDown={startDrawing}
+          onPointerMove={draw}
+          onPointerUp={stopDrawing}
+          onPointerLeave={handleMouseLeaveCanvas}
           className="absolute inset-0 w-full h-full"
-          style={{ cursor: currentMode === 'erase' ? 'none' : 'crosshair', background: 'transparent' }}
+          style={{ cursor: currentMode === 'erase' ? 'none' : 'crosshair', background: 'transparent', touchAction: 'none' }}
         />
 
         {/* Eraser cursor preview */}
