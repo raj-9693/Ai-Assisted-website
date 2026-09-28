@@ -8,6 +8,9 @@ import {
   Circle,
   Palette,
   Shapes,
+  Hand,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { Note, NoteBackground } from '@/types/note';
 import BackgroundThemeSheet, { getBackgroundStyle } from '@/components/BackgroundThemeSheet';
@@ -21,13 +24,11 @@ interface DrawingCanvasProps {
 const colors = ['#000000', '#4F46E5', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#dc49b3ff'];
 const strokeSizes = [2, 4, 8, 12];
 
-
 const CANVAS_WIDTH = 2000;
 const CANVAS_HEIGHT = 2400;
+const MAX_HISTORY = 30;
 
 type CurrentMode = 'draw' | 'erase' | 'shape' | 'pan';
-
-
 
 type ShapeType =
   | 'line'
@@ -322,7 +323,81 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
   const [showShapesPanel, setShowShapesPanel] = useState(false);
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Undo / Redo history
+  const historyRef = useRef<string[]>([]);
+  const historyIndexRef = useRef(-1);
+
   const eraserSize = strokeSize * 6;
+
+  const getDrawCtx = (): CanvasRenderingContext2D | null =>
+    drawCanvasRef.current?.getContext('2d') ?? null;
+
+  const getOverlayCtx = (): CanvasRenderingContext2D | null =>
+    overlayCanvasRef.current?.getContext('2d') ?? null;
+
+  const clearOverlay = () => {
+    const oc = overlayCanvasRef.current;
+    const ctx = getOverlayCtx();
+    if (oc && ctx) ctx.clearRect(0, 0, oc.width, oc.height);
+  };
+
+  // ---------- Undo / Redo ----------
+  const saveSnapshot = () => {
+    const dc = drawCanvasRef.current;
+    if (!dc) return;
+    const history = historyRef.current.slice(0, historyIndexRef.current + 1);
+    history.push(dc.toDataURL('image/png'));
+    if (history.length > MAX_HISTORY) history.shift();
+    historyRef.current = history;
+    historyIndexRef.current = history.length - 1;
+  };
+
+  const restoreSnapshot = (index: number) => {
+    const dc = drawCanvasRef.current;
+    const ctx = getDrawCtx();
+    const data = historyRef.current[index];
+    if (!dc || !ctx || !data) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, dc.width, dc.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = data;
+    setHasDrawn(true);
+  };
+
+  const undo = () => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current -= 1;
+    restoreSnapshot(historyIndexRef.current);
+  };
+
+  const redo = () => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current += 1;
+    restoreSnapshot(historyIndexRef.current);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setNote(initialNote);
@@ -351,23 +426,30 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
     const dc = drawCanvasRef.current;
     const oc = overlayCanvasRef.current;
     if (!dc) return;
-  
+
     dc.width = CANVAS_WIDTH;
     dc.height = CANVAS_HEIGHT;
     if (oc) {
       oc.width = CANVAS_WIDTH;
       oc.height = CANVAS_HEIGHT;
     }
-  
+
     const ctx = dc.getContext('2d');
     if (!ctx) return;
-  
+
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  
+    historyRef.current = [];
+    historyIndexRef.current = -1;
+
     if (note.content && note.content.startsWith('data:')) {
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        saveSnapshot();
+      };
       img.src = note.content;
+    } else {
+      saveSnapshot();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
@@ -376,18 +458,6 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
     const frame = requestAnimationFrame(() => initializeCanvas());
     return () => cancelAnimationFrame(frame);
   }, [initializeCanvas]);
-
-  const getDrawCtx = (): CanvasRenderingContext2D | null =>
-    drawCanvasRef.current?.getContext('2d') ?? null;
-
-  const getOverlayCtx = (): CanvasRenderingContext2D | null =>
-    overlayCanvasRef.current?.getContext('2d') ?? null;
-
-  const clearOverlay = () => {
-    const oc = overlayCanvasRef.current;
-    const ctx = getOverlayCtx();
-    if (oc && ctx) ctx.clearRect(0, 0, oc.width, oc.height);
-  };
 
   const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const dc = drawCanvasRef.current;
@@ -407,7 +477,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
 
   const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (currentMode === 'pan') return;
-  
+
     const ctx = getDrawCtx();
     if (!ctx) return;
 
@@ -494,6 +564,8 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
     setIsDrawing(false);
     const ctx = getDrawCtx();
     if (ctx) ctx.globalCompositeOperation = 'source-over';
+
+    saveSnapshot();
   };
 
   const handleMouseLeaveCanvas = () => {
@@ -511,6 +583,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
     const ctx = dc.getContext('2d');
     if (ctx) ctx.clearRect(0, 0, dc.width, dc.height);
     clearOverlay();
+    saveSnapshot();
   };
 
   const handleSave = () => {
@@ -541,6 +614,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
       if (dc) {
         const ctx = dc.getContext('2d');
         if (ctx) ctx.clearRect(0, 0, dc.width, dc.height);
+        saveSnapshot();
       }
       setNote(prev => ({ ...prev, background, content: '' }));
     } else {
@@ -591,7 +665,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
 
           {/* Desktop Tools — hidden on mobile */}
           <div className="hidden sm:flex items-center gap-6">
-            {/* Pencil / Eraser / Shapes */}
+            {/* Pencil / Eraser / Shapes / Pan / Undo / Redo */}
             <div className="flex gap-2 relative">
               <button
                 onClick={() => { setCurrentMode('draw'); setShowShapesPanel(false); }}
@@ -633,6 +707,31 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
                 </button>
                 {renderShapesPanel()}
               </div>
+              <button
+                onClick={() => { setCurrentMode('pan'); setShowShapesPanel(false); }}
+                title="Scroll (Hand)"
+                className={`p-3 rounded-lg transition-all ${
+                  currentMode === 'pan'
+                    ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Hand className="w-5 h-5" />
+              </button>
+              <button
+                onClick={undo}
+                title="Undo (Ctrl+Z)"
+                className="p-3 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+              >
+                <Undo2 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={redo}
+                title="Redo (Ctrl+Y)"
+                className="p-3 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+              >
+                <Redo2 className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Stroke colors */}
@@ -642,7 +741,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
                   key={c}
                   onClick={() => {
                     setColor(c);
-                    if (currentMode === 'erase') setCurrentMode('draw');
+                    if (currentMode === 'erase' || currentMode === 'pan') setCurrentMode('draw');
                   }}
                   className={`w-8 h-8 rounded-full border-2 transition-all ${
                     color === c && currentMode !== 'erase'
@@ -685,6 +784,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
               </button>
               <button
                 onClick={clearCanvas}
+                title="Clear"
                 className="p-3 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all"
               >
                 <Trash2 className="w-5 h-5" />
@@ -752,6 +852,31 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
           >
             <Shapes className="w-5 h-5" />
           </button>
+          <button
+            onClick={() => { setCurrentMode('pan'); setShowShapesPanel(false); }}
+            title="Scroll (Hand)"
+            className={`min-w-[44px] min-h-[44px] p-2.5 rounded-lg flex-shrink-0 transition-all ${
+              currentMode === 'pan'
+                ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-300'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            <Hand className="w-5 h-5" />
+          </button>
+          <button
+            onClick={undo}
+            title="Undo"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-gray-100 text-gray-600 flex-shrink-0"
+          >
+            <Undo2 className="w-5 h-5" />
+          </button>
+          <button
+            onClick={redo}
+            title="Redo"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-gray-100 text-gray-600 flex-shrink-0"
+          >
+            <Redo2 className="w-5 h-5" />
+          </button>
 
           <div className="w-px h-6 bg-gray-200 mx-1 flex-shrink-0" />
 
@@ -760,7 +885,7 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
               key={c}
               onClick={() => {
                 setColor(c);
-                if (currentMode === 'erase') setCurrentMode('draw');
+                if (currentMode === 'erase' || currentMode === 'pan') setCurrentMode('draw');
               }}
               className={`w-8 h-8 rounded-full border-2 flex-shrink-0 transition-all ${
                 color === c && currentMode !== 'erase'
@@ -844,43 +969,44 @@ export default function DrawingCanvas({ note: initialNote, onSave, onClose }: Dr
         />
       </div>
 
+      {/* Drawing area (scrollable) */}
       <div ref={containerRef} className="flex-1 min-h-0 overflow-auto relative bg-gray-100 drawing-scroll">
-  <div
-    className="relative"
-    style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, ...getBackgroundStyle(note.background) }}
-  >
-    <canvas
-      ref={drawCanvasRef}
-      onPointerDown={startDrawing}
-      onPointerMove={draw}
-      onPointerUp={stopDrawing}
-      onPointerLeave={handleMouseLeaveCanvas}
-      className="absolute inset-0 w-full h-full"
-      style={{
-        cursor: currentMode === 'erase' ? 'none' : currentMode === 'pan' ? 'grab' : 'crosshair',
-        background: 'transparent',
-        touchAction: currentMode === 'pan' ? 'auto' : 'none',
-      }}
-    />
-    <canvas
-      ref={overlayCanvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ background: 'transparent' }}
-    />
+        <div
+          className="relative"
+          style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, ...getBackgroundStyle(note.background) }}
+        >
+          <canvas
+            ref={drawCanvasRef}
+            onPointerDown={startDrawing}
+            onPointerMove={draw}
+            onPointerUp={stopDrawing}
+            onPointerLeave={handleMouseLeaveCanvas}
+            className="absolute inset-0 w-full h-full"
+            style={{
+              cursor: currentMode === 'erase' ? 'none' : currentMode === 'pan' ? 'grab' : 'crosshair',
+              background: 'transparent',
+              touchAction: currentMode === 'pan' ? 'auto' : 'none',
+            }}
+          />
+          <canvas
+            ref={overlayCanvasRef}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ background: 'transparent' }}
+          />
 
-    {currentMode === 'erase' && cursorPos && (
-      <div
-        className="absolute pointer-events-none border-2 border-red-400 bg-red-100/20 rounded-sm"
-        style={{
-          width: eraserSize,
-          height: eraserSize,
-          left: cursorPos.x - eraserSize / 2,
-          top: cursorPos.y - eraserSize / 2,
-        }}
-      />
-    )}
-  </div>
-</div>
+          {currentMode === 'erase' && cursorPos && (
+            <div
+              className="absolute pointer-events-none border-2 border-red-400 bg-red-100/20 rounded-sm"
+              style={{
+                width: eraserSize,
+                height: eraserSize,
+                left: cursorPos.x - eraserSize / 2,
+                top: cursorPos.y - eraserSize / 2,
+              }}
+            />
+          )}
+        </div>
+      </div>
 
       <BackgroundThemeSheet
         isOpen={showBackgroundSheet}
